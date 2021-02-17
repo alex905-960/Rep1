@@ -1,0 +1,240 @@
+-- Задание 4.1
+  SELECT a.city, COUNT(a.airport_code) as airports_total 
+    FROM dst_project.airports AS a 
+GROUP BY a.city 
+  HAVING COUNT(a.airport_code)>=2
+
+-- Задание 4.2
+SELECT COUNT(DISTINCT status) AS cnt 
+  FROM dst_project.flights  FROM dst_project.flights AS fl
+
+--
+
+SELECT COUNT(aircraft_code) as cnt
+  FROM dst_project.flights
+ WHERE status='Departed'
+
+--
+
+SELECT COUNT(seat_no) as cnt
+  FROM dst_project.seats AS s
+       INNER JOIN dst_project.aircrafts AS a ON s.aircraft_code=a.aircraft_code
+ WHERE a.model='Boeing 777-300'
+  
+--
+
+SELECT count(*) AS cnt
+  FROM dst_project.flights AS fl
+ WHERE fl.status='Arrived'  
+	AND fl.actual_arrival>='2017-04-01' 
+	AND fl.actual_arrival<='2017-09-01'
+
+-- Задание 4.3
+
+SELECT COUNT(*) AS cnt
+  FROM dst_project.flights AS fl
+ WHERE fl.status='Cancelled'
+
+--
+
+SELECT COUNT(*) AS cnt
+  FROM dst_project.aircrafts AS ac
+ WHERE ac.model LIKE 'Boeing%'
+
+--
+
+SELECT COUNT(*) AS cnt
+  FROM dst_project.aircrafts AS ac
+ WHERE ac.model LIKE 'Airbus%'
+
+--
+
+SELECT COUNT(*) AS cnt
+  FROM dst_project.aircrafts AS ac
+ WHERE ac.model LIKE 'Sukhoi Superjet%'
+
+--
+
+SELECT 'Asia' as Location, COUNT(*) as cnt
+  FROM dst_project.airports as A
+ WHERE A.timezone LIKE 'Asia%'
+
+UNION ALL
+  
+SELECT 'Europe' as Location, COUNT(*) as cnt
+  FROM dst_project.airports as A
+ WHERE A.timezone LIKE 'Europe%'
+ 
+UNION ALL
+
+SELECT 'Australia' as Location, COUNT(*) as cnt
+  FROM dst_project.airports as A
+ WHERE A.timezone LIKE 'Austrlia%'
+
+-- 
+
+  SELECT flight_id
+    FROM dst_project.flights AS fl
+   WHERE fl.status='Arrived'
+ORDER BY (fl.actual_arrival-fl.scheduled_arrival) DESC
+   LIMIT 1
+
+-- Задание 4.4
+
+SELECT scheduled_departure
+  FROM dst_project.flights AS fl
+ ORDER BY scheduled_departure 
+ LIMIT 1
+
+--
+
+SELECT DATE_PART('M', fl.scheduled_arrival-fl.scheduled_departure)+DATE_PART('H', fl.scheduled_arrival-fl.scheduled_departure)*60 AS MN
+  FROM dst_project.flights AS fl
+ WHERE status='Arrived'
+ ORDER BY fl.actual_arrival-fl.actual_departure DESC
+ LIMIT 1
+
+--
+
+SELECT fl.departure_airport,fl.arrival_airport
+  FROM dst_project.flights AS fl
+ WHERE fl.status='Scheduled'
+ ORDER BY fl.scheduled_arrival-fl.scheduled_departure DESC
+ LIMIT 1
+
+--
+
+ SELECT DATE_PART('M',AVG(fl.actual_arrival-fl.actual_departure))+DATE_PART('H',AVG(fl.actual_arrival-fl.actual_departure))*60 AS MN
+   FROM dst_project.flights AS fl
+  WHERE fl.status='Arrived'
+
+-- Задание 4.5
+
+SELECT s.fare_conditions
+  FROM dst_project.seats AS s 
+ WHERE s.aircraft_code like '%SU9%'
+ GROUP BY s.fare_conditions
+ ORDER BY COUNT(s.seat_no) DESC
+ LIMIT 1
+
+--
+
+SELECT MIN(bk.total_amount) min_ta
+  FROM dst_project.bookings AS bk
+
+--
+
+SELECT bp.seat_no
+  FROM dst_project.tickets as ti
+        INNER JOIN dst_project.boarding_passes AS bp ON ti.ticket_no=bp.ticket_no
+WHERE ti.passenger_id='4313 788533'
+
+-- Задание 5.1
+
+SELECT COUNT(flight_id) AS aaq_2017_cnt
+  FROM dst_project.flights AS fl
+ WHERE fl.arrival_airport='AAQ' AND fl.status='Arrived' AND DATE_PART('Y',fl.actual_arrival)=2017       
+ 
+--
+
+SELECT COUNT(flight_id) AS aaq_2017_cnt
+  FROM dst_project.flights AS fl
+ WHERE fl.departure_airport='AAQ' 
+        AND fl.status='Arrived' 
+        AND DATE_PART('Y',fl.actual_departure)=2017 
+        AND (DATE_PART('month',fl.actual_departure)>=12 OR DATE_PART('month',fl.actual_departure)<=2)     
+ 
+--
+
+SELECT COUNT(fl.flight_id) as aaq_c
+  FROM dst_project.flights AS fl
+ WHERE fl.departure_airport='AAQ' 
+        AND fl.status='Cancelled'  
+ 
+--
+
+SELECT COUNT(fl.flight_id) as aaq_mow_not
+  FROM dst_project.flights AS fl
+        INNER JOIN dst_project.airports AS ap ON ap.airport_code=fl.arrival_airport
+ WHERE fl.departure_airport='AAQ' 
+        AND ap.city<>'Moscow' 
+
+--
+
+SELECT airc.model
+  FROM dst_project.flights AS fl
+        INNER JOIN (SELECT COUNT(*) as total_seats,s.aircraft_code
+                      FROM dst_project.seats AS s
+                     GROUP BY s.aircraft_code) AS ac ON ac.aircraft_code=fl.aircraft_code
+        INNER JOIN dst_project.aircrafts as airc ON airc.aircraft_code=ac.aircraft_code
+ WHERE fl.departure_airport='AAQ'
+ ORDER BY ac.total_seats desc
+ LIMIT 1
+ 
+-- Итоговое задание
+WITH consumption AS (SELECT '733' AS aircraft_code, 2600 as h_consumption,
+                     402 as total_seats
+                     UNION ALL
+                     SELECT 'SU9' AS aircraft_code, 1800 as h_consumption,
+                     97 as total_seats),
+            
+    airport_data AS (SELECT 'SVO' as airport_code, 43700 as service_price, 3 as gmt
+                    UNION ALL
+                    SELECT 'NOZ' as airport_code, 50000 as service_price, 7 as gmt
+                    UNION ALL
+                    SELECT 'EGO' as airport_code, 32200 as service_price, 3 as gmt
+                    UNION ALL
+                    SELECT 'AAQ' as airport_code, 62000 as service_price, 3 as gmt),
+                    
+ flights_amounts AS (SELECT flight_id,SUM(amount) as f_amount
+                    FROM dst_project.ticket_flights 
+                    GROUP BY flight_id),
+                    
+            fuel AS (SELECT 49.964 as price),
+            
+  bougth_tickets AS (SELECT tf0.flight_id,COUNT(tf0.flight_id) ticket_count,ts.total_seats
+                    FROM dst_project.ticket_flights tf0
+                    INNER JOIN dst_project.flights as fl0 ON fl0.flight_id=tf0.flight_id
+                    INNER JOIN (SELECT aircraft_code,COUNT(aircraft_code) as total_seats
+                                FROM dst_project.seats
+                                GROUP BY aircraft_code) AS ts 
+                            ON ts.aircraft_code=fl0.aircraft_code
+                    GROUP BY tf0.flight_id,ts.total_seats)
+                    
+ SELECT flight_no,fl.aircraft_code,actual_departure,
+        actual_arrival,airport_name,ap.city,
+        (asr0.service_price+asr1.service_price) AS mainteance_price,
+        ((DATE_PART('M',fl.actual_arrival-fl.actual_departure)*1.0/60+
+         DATE_PART('H',fl.actual_arrival-fl.actual_departure)-asr1.gmt+asr0.gmt)*
+        cs.h_consumption*fuel.price) AS fuel_price, 
+        COALESCE(fa.f_amount,0) AS t_amount,(asr1.gmt-asr0.gmt) AS gmt_diff,
+        (COALESCE(fa.f_amount,0)-((DATE_PART('M',fl.actual_arrival-fl.actual_departure)*1.0/60+
+         DATE_PART('H',fl.actual_arrival-fl.actual_departure)-asr1.gmt+asr0.gmt)*
+        cs.h_consumption*fuel.price)-(asr0.service_price+asr1.service_price)) AS profit,
+        COALESCE(bt.total_seats,cs.total_seats) AS capacity, COALESCE(bt.ticket_count,0) AS ticket_count, 
+        COALESCE(ROUND(bt.ticket_count*100.0/bt.total_seats,2),0) AS loadness
+ FROM dst_project.flights AS fl
+        INNER JOIN dst_project.aircrafts AS ac ON ac.aircraft_code=fl.aircraft_code
+        INNER JOIN dst_project.airports AS ap ON ap.airport_code=fl.arrival_airport
+        INNER JOIN airport_data AS asr0 ON asr0.airport_code=fl.departure_airport
+        INNER JOIN airport_data AS asr1 ON asr1.airport_code=fl.arrival_airport
+        INNER JOIN consumption AS cs ON cs.aircraft_code=fl.aircraft_code
+        LEFT JOIN bougth_tickets AS bt ON bt.flight_id=fl.flight_id
+        LEFT JOIN flights_amounts AS fa ON fa.flight_id=fl.flight_id
+        CROSS JOIN fuel
+WHERE fl.departure_airport = 'AAQ'
+  AND (date_trunc('month', fl.scheduled_departure) in ('2017-01-01','2017-02-01', '2017-12-01'))
+  AND fl.status not in ('Cancelled')
+
+-- Аналитика
+WITH dataset AS (…. запрос из п.1.)
+SELECT flight_no,city,SUM(profit) AS total_prifit,AVG(loadness) AS avg_loadness
+FROM dataset
+GROUP BY flight_no,city
+
+-- Аналитика
+WITH dataset AS (…. запрос из п.1.)
+SELECT DATE_PART('month',dataset.actual_departure) as Month_dep, SUM(profit) AS total_prifit,AVG(loadness) AS avg_loadness
+FROM dataset
+GROUP BY DATE_PART('month',dataset.actual_departure)
+ 
